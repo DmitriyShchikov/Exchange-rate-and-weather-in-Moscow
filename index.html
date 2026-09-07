@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Курс USD и EUR по данным ЦБ РФ и текущая погода в Москве (Open-Meteo).">
+<title>Московское табло</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600&family=Golos+Text:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #E8ECF3;
+    --surface: #FBFCFE;
+    --sunk: #DFE4EE;
+    --ink: #10141D;
+    --ink-soft: #394153;
+    --muted: #5F6981;
+    --line: #CDD4E2;
+    --line-strong: #A7B1C5;
+    --accent: #2A46C8;
+    --accent-ink: #2A46C8;
+    --accent-soft: #DEE3FA;
+    --up: #0E6A4E;
+    --up-soft: #D5EAE1;
+    --down: #AF3820;
+    --down-soft: #F6DED7;
+    --wet: #7E5A08;
+    --wet-soft: #F3E6C4;
+    --shadow: 0 1px 2px rgba(16,20,29,.05), 0 10px 26px -18px rgba(16,20,29,.55);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0B0E15;
+      --surface: #151A24;
+      --sunk: #1C222E;
+      --ink: #E9ECF4;
+      --ink-soft: #C0C8D8;
+      --muted: #8A94A9;
+      --line: #262D3B;
+      --line-strong: #3A4356;
+      --accent: #8CA1FF;
+      --accent-ink: #A8B8FF;
+      --accent-soft: #1B2440;
+      --up: #4ECFA1;
+      --up-soft: #10281F;
+      --down: #FF8E6D;
+      --down-soft: #2C1611;
+      --wet: #E0B75A;
+      --wet-soft: #2A2110;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 30px -20px rgba(0,0,0,.9);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0B0E15;
+    --surface: #151A24;
+    --sunk: #1C222E;
+    --ink: #E9ECF4;
+    --ink-soft: #C0C8D8;
+    --muted: #8A94A9;
+    --line: #262D3B;
+    --line-strong: #3A4356;
+    --accent: #8CA1FF;
+    --accent-ink: #A8B8FF;
+    --accent-soft: #1B2440;
+    --up: #4ECFA1;
+    --up-soft: #10281F;
+    --down: #FF8E6D;
+    --down-soft: #2C1611;
+    --wet: #E0B75A;
+    --wet-soft: #2A2110;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 30px -20px rgba(0,0,0,.9);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Golos Text", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 20px 56px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ---------- header ---------- */
+
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--line-strong);
+  }
+
+  .masthead h1 {
+    margin: 0;
+    font-family: Unbounded, "Golos Text", sans-serif;
+    font-weight: 600;
+    font-size: clamp(26px, 4.6vw, 40px);
+    letter-spacing: -0.02em;
+    line-height: 1.02;
+    text-wrap: balance;
+  }
+
+  .masthead h1 span {
+    display: block;
+    font-size: 0.44em;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  .clock {
+    text-align: right;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .clock b {
+    display: block;
+    font-size: clamp(22px, 3.4vw, 30px);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .clock small {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---------- grid ---------- */
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .card {
+    grid-column: span 1;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 166px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--line-strong);
+  }
+
+  .card[data-tone="rub"]::before { background: var(--accent); }
+  .card[data-tone="air"]::before { background: var(--up); }
+  .card[data-tone="wet"]::before { background: var(--wet); }
+  .card[data-state="error"]::before { background: var(--down); }
+
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .card-head b {
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+
+  .value {
+    font-family: Unbounded, "Golos Text", sans-serif;
+    font-weight: 500;
+    font-size: clamp(28px, 3.6vw, 38px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+  }
+
+  .value .unit {
+    font-size: 0.46em;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-left: 4px;
+  }
+
+  .value.is-pending {
+    color: var(--line-strong);
+  }
+
+  .sub {
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-height: 22px;
+  }
+
+  .sub .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .chip[data-dir="up"] { background: var(--up-soft); color: var(--up); }
+  .chip[data-dir="down"] { background: var(--down-soft); color: var(--down); }
+  .chip[data-dir="flat"] { background: var(--sunk); color: var(--muted); }
+  .chip[data-dir="wet"] { background: var(--wet-soft); color: var(--wet); }
+  .chip[data-dir="calm"] { background: var(--sunk); color: var(--ink-soft); }
+
+  /* ---------- precipitation strip ---------- */
+
+  .strip {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 34px;
+    padding-top: 2px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .strip i {
+    flex: 1 1 0;
+    display: block;
+    min-height: 2px;
+    background: var(--wet);
+    opacity: .28;
+    border-radius: 1px 1px 0 0;
+  }
+
+  .strip i[data-hi="1"] { opacity: .95; }
+
+  .strip-legend {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    white-space: nowrap;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- status bar ---------- */
+
+  .status {
+    grid-column: span 4;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  .status-when {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .status-when b {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 20px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+  }
+
+  .status-when small,
+  .sources {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    letter-spacing: 0.08em;
+    text-transform: none;
+    font-size: 12px;
+  }
+
+  .sources span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+
+  .dot[data-ok="1"] { background: var(--up); }
+  .dot[data-ok="0"] { background: var(--down); }
+
+  button.refresh {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--surface);
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+
+  button.refresh:hover { opacity: .86; }
+  button.refresh:active { transform: translateY(1px); }
+
+  button.refresh:disabled {
+    cursor: progress;
+    opacity: .5;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ---------- error ---------- */
+
+  .err {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: auto;
+  }
+
+  .err b {
+    font-family: "Golos Text", sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--down);
+    line-height: 1.3;
+  }
+
+  .err p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+
+  .err a {
+    color: var(--accent-ink);
+    text-underline-offset: 2px;
+  }
+
+  .err code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  .banner {
+    grid-column: span 4;
+    display: none;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 13px 15px;
+    border: 1px solid var(--down);
+    border-left-width: 3px;
+    border-radius: 4px;
+    background: var(--down-soft);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .banner[data-show="1"] { display: flex; }
+
+  .banner b { color: var(--down); }
+
+  footer {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+
+  footer a {
+    color: var(--accent-ink);
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 2px;
+  }
+
+  .loading .value.is-pending {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .45; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .status, .banner { grid-column: span 2; }
+  }
+
+  @media (max-width: 460px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .status, .banner { grid-column: span 1; }
+    button.refresh { width: 100%; }
+    .card { min-height: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <h1><span>Курс ЦБ РФ и погода</span>Москва</h1>
+    <div class="clock">
+      <b id="clock">--:--</b>
+      <small id="clock-date">Время московское</small>
+    </div>
+  </header>
+
+  <main class="grid loading" id="grid">
+    <div class="banner" id="banner">
+      <div><b id="banner-title">Данные получены не полностью</b><br><span id="banner-text"></span></div>
+    </div>
+
+    <section class="card" data-tone="rub" id="card-usd">
+      <div class="card-head"><b>Доллар США</b><span>USD</span></div>
+      <div class="value is-pending" id="usd-value">—<span class="unit">₽</span></div>
+      <div class="sub" id="usd-sub">Запрашиваем курс…</div>
+    </section>
+
+    <section class="card" data-tone="rub" id="card-eur">
+      <div class="card-head"><b>Евро</b><span>EUR</span></div>
+      <div class="value is-pending" id="eur-value">—<span class="unit">₽</span></div>
+      <div class="sub" id="eur-sub">Запрашиваем курс…</div>
+    </section>
+
+    <section class="card" data-tone="air" id="card-temp">
+      <div class="card-head"><b>Температура</b><span>2 м</span></div>
+      <div class="value is-pending" id="temp-value">—<span class="unit">°C</span></div>
+      <div class="sub" id="temp-sub">Запрашиваем погоду…</div>
+    </section>
+
+    <section class="card" data-tone="wet" id="card-prec">
+      <div class="card-head"><b>Осадки</b><span>мм/ч</span></div>
+      <div class="value is-pending" id="prec-value">—<span class="unit">мм</span></div>
+      <div class="sub" id="prec-sub">Запрашиваем погоду…</div>
+    </section>
+
+    <section class="status">
+      <div class="status-when">
+        <b id="updated">—</b>
+        <small id="updated-label">Обновление ещё не завершено</small>
+      </div>
+      <div class="sources">
+        <span><i class="dot" id="dot-cbr"></i>ЦБ РФ · cbr-xml-daily.ru</span>
+        <span><i class="dot" id="dot-om"></i>Погода · Open-Meteo</span>
+      </div>
+      <button class="refresh" id="refresh" type="button">Обновить</button>
+    </section>
+  </main>
+
+  <footer>
+    Курсы — официальные котировки Банка России на дату публикации (обновляются по будням около 12:00 МСК),
+    изменение считается к предыдущей дате торгов. Погода — Open-Meteo, точка 55.7558° N, 37.6176° E, часовой пояс Europe/Moscow.
+    Источники: <a href="https://www.cbr-xml-daily.ru/daily_json.js" target="_blank" rel="noopener">cbr-xml-daily.ru</a>,
+    <a href="https://open-meteo.com/" target="_blank" rel="noopener">open-meteo.com</a>.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var CBR_URL = "https://www.cbr-xml-daily.ru/daily_json.js";
+  var OM_URL = "https://api.open-meteo.com/v1/forecast?latitude=55.7558&longitude=37.6176" +
+    "&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m" +
+    "&hourly=precipitation,precipitation_probability" +
+    "&forecast_days=2&timezone=Europe%2FMoscow";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var WMO = {
+    0: "Ясно", 1: "Преимущественно ясно", 2: "Переменная облачность", 3: "Пасмурно",
+    45: "Туман", 48: "Изморозь", 51: "Морось, слабая", 53: "Морось", 55: "Морось, сильная",
+    56: "Ледяная морось", 57: "Ледяная морось, сильная",
+    61: "Дождь, слабый", 63: "Дождь", 65: "Дождь, сильный",
+    66: "Ледяной дождь", 67: "Ледяной дождь, сильный",
+    71: "Снег, слабый", 73: "Снег", 75: "Снег, сильный", 77: "Снежные зёрна",
+    80: "Ливень, слабый", 81: "Ливень", 82: "Ливень, сильный",
+    85: "Снегопад, слабый", 86: "Снегопад, сильный",
+    95: "Гроза", 96: "Гроза с градом", 99: "Гроза с крупным градом"
+  };
+
+  var nf = function (v, d) {
+    return new Intl.NumberFormat("ru-RU", { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+  };
+
+  var msk = function (date, opts) {
+    var o = Object.assign({ timeZone: "Europe/Moscow" }, opts);
+    return new Intl.DateTimeFormat("ru-RU", o).format(date);
+  };
+
+  /* ---------- clock ---------- */
+
+  function tick() {
+    var now = new Date();
+    $("clock").textContent = msk(now, { hour: "2-digit", minute: "2-digit" });
+    $("clock-date").textContent = msk(now, { day: "numeric", month: "long" }) + " · МСК";
+  }
+  tick();
+  setInterval(tick, 15000);
+
+  /* ---------- network ---------- */
+
+  function getJSON(url) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 12000);
+    return fetch(url, { signal: ctrl.signal, cache: "no-store", mode: "cors" })
+      .then(function (res) {
+        if (!res.ok) throw new Error("Сервер ответил кодом " + res.status + " " + res.statusText);
+        return res.json();
+      })
+      .catch(function (e) {
+        if (e && e.name === "AbortError") throw new Error("Ответа нет дольше 12 секунд");
+        if (e instanceof TypeError) throw new Error("Браузер не смог выполнить запрос: нет сети или запрос заблокирован");
+        throw e;
+      })
+      .then(function (data) { clearTimeout(timer); return data; },
+            function (err) { clearTimeout(timer); throw err; });
+  }
+
+  /* ---------- rendering: currency ---------- */
+
+  function renderRate(prefix, v) {
+    var rate = v.Value / v.Nominal;
+    var prev = v.Previous / v.Nominal;
+    var diff = rate - prev;
+    var pct = prev ? (diff / prev) * 100 : 0;
+    var dir = Math.abs(diff) < 0.00005 ? "flat" : (diff > 0 ? "up" : "down");
+    var arrow = dir === "flat" ? "=" : (dir === "up" ? "▲" : "▼");
+
+    $(prefix + "-value").className = "value";
+    $(prefix + "-value").innerHTML = nf(rate, 4) + '<span class="unit">₽</span>';
+    $(prefix + "-sub").innerHTML =
+      '<span class="chip" data-dir="' + dir + '">' + arrow + " " +
+      (diff > 0 ? "+" : diff < 0 ? "−" : "") + nf(Math.abs(diff), 4) + " ₽ · " +
+      (pct > 0 ? "+" : pct < 0 ? "−" : "") + nf(Math.abs(pct), 2) + "%</span>" +
+      '<span class="mono">пред. ' + nf(prev, 4) + "</span>";
+  }
+
+  function renderCbr(data) {
+    if (!data || !data.Valute || !data.Valute.USD || !data.Valute.EUR) {
+      throw new Error("В ответе нет котировок USD и EUR");
+    }
+    renderRate("usd", data.Valute.USD);
+    renderRate("eur", data.Valute.EUR);
+
+    var d = new Date(data.Date);
+    var label = isNaN(d) ? "" : msk(d, { day: "numeric", month: "long" });
+    ["usd", "eur"].forEach(function (p) {
+      $(p + "-sub").insertAdjacentHTML("beforeend",
+        '<span class="mono">котировка на ' + label + "</span>");
+      $("card-" + p).setAttribute("data-state", "ok");
+    });
+    $("dot-cbr").setAttribute("data-ok", "1");
+  }
+
+  /* ---------- rendering: weather ---------- */
+
+  function renderWeather(data) {
+    var c = data && data.current;
+    if (!c || typeof c.temperature_2m !== "number") {
+      throw new Error("В ответе нет текущих показаний по Москве");
+    }
+
+    var t = c.temperature_2m;
+    $("temp-value").className = "value";
+    $("temp-value").innerHTML = (t > 0 ? "+" : t < 0 ? "−" : "") +
+      nf(Math.abs(t), 1) + '<span class="unit">°C</span>';
+
+    var feels = c.apparent_temperature;
+    $("temp-sub").innerHTML =
+      '<span class="chip" data-dir="calm">' + (WMO[c.weather_code] || "Код погоды " + c.weather_code) + "</span>" +
+      '<span class="mono">ощущается ' + (feels > 0 ? "+" : feels < 0 ? "−" : "") + nf(Math.abs(feels), 1) + "°</span>" +
+      '<span class="mono">' + Math.round(c.relative_humidity_2m) + "% влажн.</span>" +
+      '<span class="mono">ветер ' + nf(c.wind_speed_10m, 1) + " км/ч</span>";
+
+    /* current precipitation + next-hours probability strip */
+    var mm = typeof c.precipitation === "number" ? c.precipitation : 0;
+    $("prec-value").className = "value";
+    $("prec-value").innerHTML = nf(mm, 1) + '<span class="unit">мм/ч</span>';
+
+    var sub = [];
+    sub.push('<span class="chip" data-dir="' + (mm > 0 ? "wet" : "calm") + '">' +
+      (mm > 0 ? "Идут осадки" : "Сухо") + "</span>");
+
+    var h = data.hourly;
+    var stripHtml = "";
+    if (h && Array.isArray(h.time) && Array.isArray(h.precipitation_probability)) {
+      var start = 0;
+      var nowKey = String(c.time).slice(0, 13);
+      for (var i = 0; i < h.time.length; i++) {
+        if (String(h.time[i]).slice(0, 13) === nowKey) { start = i; break; }
+      }
+      var slice = [];
+      for (var j = start; j < Math.min(start + 12, h.time.length); j++) {
+        slice.push({ t: h.time[j], p: h.precipitation_probability[j] || 0 });
+      }
+      if (slice.length) {
+        var maxP = Math.max.apply(null, slice.map(function (x) { return x.p; }));
+        sub.push('<span class="mono">вероятность сейчас ' + slice[0].p + "%</span>");
+        stripHtml = '<div class="strip" role="img" aria-label="Вероятность осадков на ближайшие ' +
+          slice.length + ' часов, максимум ' + maxP + ' процентов">' +
+          slice.map(function (x) {
+            return '<i style="height:' + Math.max(2, Math.round(x.p * 0.32)) + 'px" data-hi="' +
+              (x.p >= 50 ? 1 : 0) + '"></i>';
+          }).join("") + "</div>" +
+          '<div class="strip-legend"><span>' + String(slice[0].t).slice(11, 16) + "</span>" +
+          "<span>макс. " + maxP + "%</span>" +
+          "<span>" + String(slice[slice.length - 1].t).slice(11, 16) + "</span></div>";
+      }
+    }
+
+    $("prec-sub").innerHTML = sub.join("");
+    var oldStrip = $("card-prec").querySelector(".strip");
+    var oldLegend = $("card-prec").querySelector(".strip-legend");
+    if (oldStrip) oldStrip.remove();
+    if (oldLegend) oldLegend.remove();
+    if (stripHtml) $("card-prec").insertAdjacentHTML("beforeend", stripHtml);
+
+    $("card-temp").setAttribute("data-state", "ok");
+    $("card-prec").setAttribute("data-state", "ok");
+    $("dot-om").setAttribute("data-ok", "1");
+  }
+
+  /* ---------- rendering: errors ---------- */
+
+  function failCards(ids, title, message, url) {
+    ids.forEach(function (id) {
+      var card = $("card-" + id);
+      card.setAttribute("data-state", "error");
+      var head = card.querySelector(".card-head");
+      card.innerHTML = "";
+      card.appendChild(head);
+      var box = document.createElement("div");
+      box.className = "err";
+      box.innerHTML = "<b>" + title + "</b>" +
+        "<p>" + message + " Нажмите «Обновить» — запрос повторится. Если не помогает, откройте " +
+        '<a href="' + url + '" target="_blank" rel="noopener">' + url.replace(/^https:\/\//, "").split("?")[0] +
+        "</a> в новой вкладке: так видно, отвечает ли сам сервис.</p>";
+      card.appendChild(box);
+    });
+  }
+
+  /* ---------- orchestration ---------- */
+
+  var btn = $("refresh");
+  var problems = [];
+
+  function load() {
+    btn.disabled = true;
+    btn.textContent = "Обновляем…";
+    problems = [];
+    $("banner").setAttribute("data-show", "0");
+    $("dot-cbr").removeAttribute("data-ok");
+    $("dot-om").removeAttribute("data-ok");
+    $("grid").classList.add("loading");
+
+    resetCard("usd", "Доллар США", "USD", "rub", "₽");
+    resetCard("eur", "Евро", "EUR", "rub", "₽");
+    resetCard("temp", "Температура", "2 м", "air", "°C");
+    resetCard("prec", "Осадки", "мм/ч", "wet", "мм/ч");
+
+    return Promise.allSettled([getJSON(CBR_URL), getJSON(OM_URL)]).then(function (res) {
+      if (res[0].status === "fulfilled") {
+        try {
+          renderCbr(res[0].value);
+        } catch (e) {
+          fail("cbr", e);
+        }
+      } else {
+        fail("cbr", res[0].reason);
+      }
+
+      if (res[1].status === "fulfilled") {
+        try {
+          renderWeather(res[1].value);
+        } catch (e) {
+          fail("om", e);
+        }
+      } else {
+        fail("om", res[1].reason);
+      }
+
+      finish();
+    });
+  }
+
+  function resetCard(id, name, unitLabel, tone, unit) {
+    var card = $("card-" + id);
+    card.removeAttribute("data-state");
+    card.setAttribute("data-tone", tone);
+    card.innerHTML =
+      '<div class="card-head"><b>' + name + "</b><span>" + unitLabel + "</span></div>" +
+      '<div class="value is-pending" id="' + id + '-value">—<span class="unit">' + unit + "</span></div>" +
+      '<div class="sub" id="' + id + '-sub">Запрашиваем данные…</div>';
+  }
+
+  function fail(source, err) {
+    var msg = (err && err.message) ? err.message : "Неизвестная ошибка";
+    if (source === "cbr") {
+      failCards(["usd", "eur"], "Курс недоступен", msg + ".", CBR_URL);
+      $("dot-cbr").setAttribute("data-ok", "0");
+      problems.push("курс ЦБ РФ (" + msg.toLowerCase() + ")");
+    } else {
+      failCards(["temp", "prec"], "Погода недоступна", msg + ".", "https://api.open-meteo.com/v1/forecast");
+      $("dot-om").setAttribute("data-ok", "0");
+      problems.push("погода Open-Meteo (" + msg.toLowerCase() + ")");
+    }
+  }
+
+  function finish() {
+    var now = new Date();
+    $("grid").classList.remove("loading");
+    btn.disabled = false;
+    btn.textContent = "Обновить";
+    $("updated").textContent = msk(now, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    $("updated-label").textContent = problems.length === 2
+      ? "Последняя попытка · данные не получены"
+      : msk(now, { day: "numeric", month: "long" }) + " · время последнего запроса, МСК";
+
+    if (problems.length) {
+      $("banner").setAttribute("data-show", "1");
+      $("banner-title").textContent = problems.length === 2
+        ? "Ни один источник не ответил"
+        : "Один из источников не ответил";
+      $("banner-text").textContent = "Не удалось получить: " + problems.join("; ") +
+        ". Остальные карточки показывают свежие данные.";
+      if (problems.length === 2) {
+        $("banner-text").textContent = "Не удалось получить: " + problems.join("; ") +
+          ". Проверьте подключение к сети и нажмите «Обновить».";
+      }
+    }
+  }
+
+  btn.addEventListener("click", function () { load(); });
+  load();
+})();
+</script>
+</body>
+</html>
