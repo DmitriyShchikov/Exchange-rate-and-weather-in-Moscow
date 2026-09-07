@@ -27,6 +27,7 @@
     --down-soft: #F6DED7;
     --wet: #7E5A08;
     --wet-soft: #F3E6C4;
+    --sheen: rgba(255,255,255,.9);
     --shadow: 0 1px 2px rgba(16,20,29,.05), 0 10px 26px -18px rgba(16,20,29,.55);
   }
 
@@ -49,6 +50,7 @@
       --down-soft: #2C1611;
       --wet: #E0B75A;
       --wet-soft: #2A2110;
+      --sheen: rgba(255,255,255,.06);
       --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 30px -20px rgba(0,0,0,.9);
     }
   }
@@ -71,6 +73,7 @@
     --down-soft: #2C1611;
     --wet: #E0B75A;
     --wet-soft: #2A2110;
+    --sheen: rgba(255,255,255,.06);
     --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 30px -20px rgba(0,0,0,.9);
   }
 
@@ -149,6 +152,34 @@
     color: var(--muted);
   }
 
+  .loadbar {
+    height: 3px;
+    margin-top: -13px;
+    border-radius: 2px;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .loadbar[data-on="1"] { background: var(--sunk); }
+
+  .loadbar i { display: none; }
+
+  .loadbar[data-on="1"] i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--accent);
+    transform-origin: left center;
+    animation: sweepbar 1.4s ease-in-out infinite;
+  }
+
+  @keyframes sweepbar {
+    0% { transform: scaleX(0); transform-origin: left center; }
+    50% { transform: scaleX(1); transform-origin: left center; }
+    50.01% { transform: scaleX(1); transform-origin: right center; }
+    100% { transform: scaleX(0); transform-origin: right center; }
+  }
+
   /* ---------- grid ---------- */
 
   .grid {
@@ -222,6 +253,56 @@
 
   .value.is-pending {
     color: var(--line-strong);
+  }
+
+  .card-src {
+    margin-top: auto;
+    padding-top: 11px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+
+  .card-src i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+
+  .card[data-tone="rub"] .card-src i { background: var(--accent); }
+  .card[data-tone="air"] .card-src i { background: var(--up); }
+  .card[data-tone="wet"] .card-src i { background: var(--wet); }
+  .card[data-state="error"] .card-src i { background: var(--down); }
+
+  .skel {
+    display: block;
+    background: var(--sunk);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--sheen), transparent);
+    animation: sweep 1.5s ease-in-out infinite;
+  }
+
+  .skel-v { height: 32px; width: 72%; }
+  .skel-s { height: 12px; width: 88%; }
+
+  @keyframes sweep {
+    100% { transform: translateX(100%); }
   }
 
   .sub {
@@ -391,7 +472,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-top: auto;
   }
 
   .err b {
@@ -440,6 +520,36 @@
 
   .banner b { color: var(--down); }
 
+  .note {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  .note::before {
+    content: "";
+    flex: none;
+    width: 18px;
+    height: 1px;
+    background: var(--line-strong);
+  }
+
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   footer {
     font-size: 12.5px;
     color: var(--muted);
@@ -454,7 +564,7 @@
     text-underline-offset: 2px;
   }
 
-  .loading .value.is-pending {
+  .loading .dot:not([data-ok]) {
     animation: pulse 1.4s ease-in-out infinite;
   }
 
@@ -465,6 +575,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
+    .loadbar[data-on="1"] i { width: 100%; }
+    .skel::after { display: none; }
   }
 
   @media (max-width: 860px) {
@@ -490,39 +602,46 @@
     </div>
   </header>
 
-  <main class="grid loading" id="grid">
+  <div class="loadbar" id="loadbar" data-on="1" aria-hidden="true"><i></i></div>
+  <p class="sr" id="live" role="status">Загружаем курс ЦБ РФ и погоду.</p>
+
+  <main class="grid loading" id="grid" aria-busy="true">
     <div class="banner" id="banner">
       <div><b id="banner-title">Данные получены не полностью</b><br><span id="banner-text"></span></div>
     </div>
 
     <section class="card" data-tone="rub" id="card-usd">
       <div class="card-head"><b>Доллар США</b><span>USD</span></div>
-      <div class="value is-pending" id="usd-value">—<span class="unit">₽</span></div>
-      <div class="sub" id="usd-sub">Запрашиваем курс…</div>
+      <div class="value is-pending" id="usd-value"><span class="skel skel-v"></span></div>
+      <div class="sub" id="usd-sub"><span class="skel skel-s"></span></div>
+      <div class="card-src"><i></i>курс ЦБ</div>
     </section>
 
     <section class="card" data-tone="rub" id="card-eur">
       <div class="card-head"><b>Евро</b><span>EUR</span></div>
-      <div class="value is-pending" id="eur-value">—<span class="unit">₽</span></div>
-      <div class="sub" id="eur-sub">Запрашиваем курс…</div>
+      <div class="value is-pending" id="eur-value"><span class="skel skel-v"></span></div>
+      <div class="sub" id="eur-sub"><span class="skel skel-s"></span></div>
+      <div class="card-src"><i></i>курс ЦБ</div>
     </section>
 
     <section class="card" data-tone="air" id="card-temp">
       <div class="card-head"><b>Температура</b><span>2 м</span></div>
-      <div class="value is-pending" id="temp-value">—<span class="unit">°C</span></div>
-      <div class="sub" id="temp-sub">Запрашиваем погоду…</div>
+      <div class="value is-pending" id="temp-value"><span class="skel skel-v"></span></div>
+      <div class="sub" id="temp-sub"><span class="skel skel-s"></span></div>
+      <div class="card-src"><i></i>погода Open-Meteo</div>
     </section>
 
     <section class="card" data-tone="wet" id="card-prec">
-      <div class="card-head"><b>Осадки</b><span>мм/ч</span></div>
-      <div class="value is-pending" id="prec-value">—<span class="unit">мм</span></div>
-      <div class="sub" id="prec-sub">Запрашиваем погоду…</div>
+      <div class="card-head"><b>Осадки</b><span>сейчас</span></div>
+      <div class="value is-pending" id="prec-value"><span class="skel skel-v"></span></div>
+      <div class="sub" id="prec-sub"><span class="skel skel-s"></span></div>
+      <div class="card-src"><i></i>погода Open-Meteo</div>
     </section>
 
     <section class="status">
       <div class="status-when">
         <b id="updated">—</b>
-        <small id="updated-label">Обновление ещё не завершено</small>
+        <small id="updated-label">Запрашиваем данные…</small>
       </div>
       <div class="sources">
         <span><i class="dot" id="dot-cbr"></i>ЦБ РФ · cbr-xml-daily.ru</span>
@@ -531,6 +650,8 @@
       <button class="refresh" id="refresh" type="button">Обновить</button>
     </section>
   </main>
+
+  <p class="note">Данные получены из внешних API</p>
 
   <footer>
     Курсы — официальные котировки Банка России на дату публикации (обновляются по будням около 12:00 МСК),
@@ -551,6 +672,11 @@
     "&forecast_days=2&timezone=Europe%2FMoscow";
 
   var $ = function (id) { return document.getElementById(id); };
+
+  var SOURCE = {
+    usd: "курс ЦБ", eur: "курс ЦБ",
+    temp: "погода Open-Meteo", prec: "погода Open-Meteo"
+  };
 
   var WMO = {
     0: "Ясно", 1: "Преимущественно ясно", 2: "Переменная облачность", 3: "Пасмурно",
@@ -699,7 +825,14 @@
     var oldLegend = $("card-prec").querySelector(".strip-legend");
     if (oldStrip) oldStrip.remove();
     if (oldLegend) oldLegend.remove();
-    if (stripHtml) $("card-prec").insertAdjacentHTML("beforeend", stripHtml);
+    if (stripHtml) {
+      var anchor = $("card-prec").querySelector(".card-src");
+      if (anchor) {
+        anchor.insertAdjacentHTML("beforebegin", stripHtml);
+      } else {
+        $("card-prec").insertAdjacentHTML("beforeend", stripHtml);
+      }
+    }
 
     $("card-temp").setAttribute("data-state", "ok");
     $("card-prec").setAttribute("data-state", "ok");
@@ -713,6 +846,7 @@
       var card = $("card-" + id);
       card.setAttribute("data-state", "error");
       var head = card.querySelector(".card-head");
+      var src = card.querySelector(".card-src");
       card.innerHTML = "";
       card.appendChild(head);
       var box = document.createElement("div");
@@ -722,6 +856,7 @@
         '<a href="' + url + '" target="_blank" rel="noopener">' + url.replace(/^https:\/\//, "").split("?")[0] +
         "</a> в новой вкладке: так видно, отвечает ли сам сервис.</p>";
       card.appendChild(box);
+      if (src) card.appendChild(src);
     });
   }
 
@@ -738,11 +873,15 @@
     $("dot-cbr").removeAttribute("data-ok");
     $("dot-om").removeAttribute("data-ok");
     $("grid").classList.add("loading");
+    $("grid").setAttribute("aria-busy", "true");
+    $("loadbar").setAttribute("data-on", "1");
+    $("updated-label").textContent = "Запрашиваем данные…";
+    $("live").textContent = "Загружаем курс ЦБ РФ и погоду.";
 
-    resetCard("usd", "Доллар США", "USD", "rub", "₽");
-    resetCard("eur", "Евро", "EUR", "rub", "₽");
-    resetCard("temp", "Температура", "2 м", "air", "°C");
-    resetCard("prec", "Осадки", "мм/ч", "wet", "мм/ч");
+    resetCard("usd", "Доллар США", "USD", "rub");
+    resetCard("eur", "Евро", "EUR", "rub");
+    resetCard("temp", "Температура", "2 м", "air");
+    resetCard("prec", "Осадки", "сейчас", "wet");
 
     return Promise.allSettled([getJSON(CBR_URL), getJSON(OM_URL)]).then(function (res) {
       if (res[0].status === "fulfilled") {
@@ -769,14 +908,15 @@
     });
   }
 
-  function resetCard(id, name, unitLabel, tone, unit) {
+  function resetCard(id, name, unitLabel, tone) {
     var card = $("card-" + id);
     card.removeAttribute("data-state");
     card.setAttribute("data-tone", tone);
     card.innerHTML =
       '<div class="card-head"><b>' + name + "</b><span>" + unitLabel + "</span></div>" +
-      '<div class="value is-pending" id="' + id + '-value">—<span class="unit">' + unit + "</span></div>" +
-      '<div class="sub" id="' + id + '-sub">Запрашиваем данные…</div>';
+      '<div class="value is-pending" id="' + id + '-value"><span class="skel skel-v"></span></div>' +
+      '<div class="sub" id="' + id + '-sub"><span class="skel skel-s"></span></div>' +
+      '<div class="card-src"><i></i>' + SOURCE[id] + "</div>";
   }
 
   function fail(source, err) {
@@ -795,6 +935,8 @@
   function finish() {
     var now = new Date();
     $("grid").classList.remove("loading");
+    $("grid").setAttribute("aria-busy", "false");
+    $("loadbar").setAttribute("data-on", "0");
     btn.disabled = false;
     btn.textContent = "Обновить";
     $("updated").textContent = msk(now, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -813,6 +955,9 @@
         $("banner-text").textContent = "Не удалось получить: " + problems.join("; ") +
           ". Проверьте подключение к сети и нажмите «Обновить».";
       }
+      $("live").textContent = $("banner-title").textContent + ". " + $("banner-text").textContent;
+    } else {
+      $("live").textContent = "Данные обновлены.";
     }
   }
 
